@@ -1,0 +1,13 @@
+{
+  "name": "save-answersheets",
+  "author": "Tim Hunt <T.J.Hunt@open.ac.uk>",
+  "license": "GPL-3.0-or-later",
+  "version": "0.7.0",
+  "description": "A script that works with the Moodle export attempts quiz report plugin, to save all the attempts for a quiz in batch.",
+  "private": true,
+  "bin": "./save-answersheets.js",
+  "dependencies": {
+    "archiver": "^3.1.1",
+    "puppeteer": "^2.1.1"
+  }
+}
