@@ -5,6 +5,7 @@
   "version": "0.7.0",
   "description": "A script that works with the Moodle export attempts quiz report plugin, to save all the attempts for a quiz in batch.",
   "private": true,
+  "main": "./save-answersheets.js",
   "bin": "./save-answersheets.js",
   "dependencies": {
     "archiver": "^3.1.1",

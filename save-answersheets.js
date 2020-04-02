@@ -9,12 +9,19 @@ const puppeteer = require('puppeteer');
 const urlUtils = require('url');
 const util = require('util');
 
+// This is the main part of the script,
+if (process.argv.length !== 3) {
+    throw new Error('Usage: ./save-answersheets <instructionfile>');
+}
 (async() => {
-    await readAndProcessFile('example-instructions.txt');
+    try {
+        await readAndProcessInstructionFile(process.argv[2]);
+    } catch (error) {
+        console.error(error);
+    }
 })();
 
-
-async function readAndProcessFile(instructionFile) {
+async function readAndProcessInstructionFile(instructionFile) {
     const script = await util.promisify(fs.readFile)(instructionFile);
     const actions = parseScript(script.toString('utf8'));
 
@@ -24,30 +31,41 @@ async function readAndProcessFile(instructionFile) {
 
     const filepath = path.resolve('output', actions.shift()[1]);
     await verifyPathDoesNotExist(filepath);
+    await createPath(path.resolve('output'));
     await createPath(filepath);
-    console.log('Using working directory %s.', filepath);
+
+    const browser = await puppeteer.launch();
 
     let action;
+    let cookies = '';
     while ((action = actions.shift())) {
-        const filename =  path.resolve(filepath, action[3]);
-
         switch (action[0]) {
             case 'save-file':
-                await saveUrlAsFile(action[1], filename);
+                const filename =  path.resolve(filepath, action[3]);
+                await saveUrlAsFile(action[1], filename, cookies);
+                console.log('Saved          %s', path.relative('', filename));
                 break;
 
             case 'save-pdf':
-                await saveUrlAsPdf(action[1], filename);
+                const pdfFilename =  path.resolve(filepath, action[3]);
+                await saveUrlAsPdf(browser, action[1], pdfFilename, cookies);
+                console.log('Saved          %s', path.relative('', pdfFilename));
+                break;
+
+            case 'cookies':
+                cookies = (new Buffer(action[1], 'base64')).toString('ascii');
                 break;
 
             default:
-                throw new Error('Unrecognised action. Should have been caughte before now.');
+                throw new Error('Unrecognised action. Should have been caught before now.');
         }
-        console.log('Saved ' + filename);
     }
 
+    await browser.close();
     await zipDirectory(filepath, filepath + '.zip');
-    console.log('Created ' + filepath + '.zip');
+    console.log('');
+    console.log('Created %s', path.relative('', filepath + '.zip'));
+    console.log('The end.');
 }
 
 function parseScript(script) {
@@ -73,6 +91,11 @@ function verifyAction(action, row) {
             throw new Error('The zip name may only contains characters -, _, ., a-z, A-Z and 0-9.');
         }
 
+    } else if (action[0] === 'cookies') {
+        if (action.length !== 2) {
+            throw new Error('cookies line should only say cookies <base64blob>.');
+        }
+
     } else {
         if (action[0] !== 'save-file' && action[0] !== 'save-pdf') {
             throw new Error('After the first line, the only recongised actions are save-file and save-pdf. ' +
@@ -84,29 +107,61 @@ function verifyAction(action, row) {
                 ' Found ' + action.join(' '));
         }
         if (!/^[-_.\/a-zA-Z0-9]+$/.test(action[3])) {
-            throw new Error('The file name to save as may only contains characters -, _, ., /, a-z, A-Z and 0-9.' +
-                ' Found ' + action[3]);
+            throw new Error('The file name to save as may only contains characters ' +
+                '-, _, ., /, a-z, A-Z and 0-9. Found ' + action[3]);
         }
     }
 }
 
-async function saveUrlAsPdf(url, filename) {
-    const browser = await puppeteer.launch();
+async function saveUrlAsPdf(browser, url, filename, cookies) {
+    await createPath(path.dirname(filename));
     const page = await browser.newPage();
+    if (cookies) {
+        const cookieObjects = parseCookies(cookies, url);
+        for (let i = 0; i < cookieObjects.length; i++) {
+            await page.setCookie(cookieObjects[i]);
+        }
+    }
     await page.goto(url, {waitUntil: 'networkidle2'});
     await page.pdf({path: filename, format: 'A4'});
-    await browser.close();
+    await page.close();
 }
 
-async function saveUrlAsFile(url, filename) {
-    const contents = await fetchUrl(url);
+function parseCookies(cookiesHeader, urlString) {
+    const url = urlUtils.parse(urlString);
+
+    const cookies = [];
+    cookiesHeader.split(/ *; */).forEach((cookie) => {
+        const bits = cookie.split('=', 2);
+        cookies.push({
+            'name': bits[0],
+            'value': bits[1],
+            'domain': url.hostname
+        })
+    });
+
+    return cookies;
+}
+
+async function saveUrlAsFile(url, filename, cookies) {
+    const contents = await fetchUrl(url, cookies);
     return await writeFile(contents, filename);
 }
 
-async function fetchUrl(urlString) {
+async function fetchUrl(urlString, cookies) {
     return new Promise((resolve, reject) => {
         const url = urlUtils.parse(urlString);
-        const req = (url.protocol === 'https:' ? https : http).get(urlString, res => {
+        const options = {
+            'host': url.hostname,
+            'path': url.pathname + (url.search ? url.search : ''),
+        };
+        if (cookies) {
+            options['headers'] = {
+                'Cookie': cookies
+            };
+        }
+
+        const req = (url.protocol === 'https:' ? https : http).get(options, res => {
             res.on('data', data => {
                 resolve(data);
             })
@@ -131,27 +186,35 @@ async function writeFile(content, filename) {
 }
 
 async function verifyPathDoesNotExist(filepath) {
-    return new Promise((resolve, reject) => {
+    if (await pathExists(filepath)) {
+        throw new Error('Target directory already exists. Please move or delete it and then try again.');
+    }
+}
+
+async function pathExists(filepath) {
+    return new Promise((resolve) => {
         fs.access(filepath, (err) => {
             if (err) {
-                // File does not exist. This is what we want.
-                resolve();
+                resolve(false);
             } else {
-                reject('Target directory already exists. Please move or delete it and then try again.');
+                resolve(true);
             }
         });
     });
 }
 
 async function createPath(filepath) {
-    return new Promise((resolve, reject) => {
-        fs.mkdir(filepath, {recursive: true}, (err) => {
-            if (err) {
-                reject(err);
-            }
-            resolve();
+    if (!(await pathExists(filepath))) {
+        console.log('Created folder %s', path.relative('', filepath));
+        return new Promise((resolve, reject) => {
+            fs.mkdir(filepath, (err) => {
+                if (err) {
+                    reject(err);
+                }
+                resolve();
+            });
         });
-    });
+    }
 }
 
 async function zipDirectory(directory, zipFile) {
