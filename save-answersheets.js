@@ -145,12 +145,10 @@ function parseCookies(cookiesHeader, urlString) {
     return cookies;
 }
 
-async function saveUrlAsFile(url, filename, cookies) {
-    const contents = await fetchUrl(url, cookies);
-    return await writeFile(contents, filename);
-}
+async function saveUrlAsFile(urlString, filename, cookies) {
+    await createPath(path.dirname(filename));
+    const writeStream = fs.createWriteStream(filename);
 
-async function fetchUrl(urlString, cookies) {
     return new Promise((resolve, reject) => {
         const url = urlUtils.parse(urlString);
         const options = {
@@ -163,27 +161,15 @@ async function fetchUrl(urlString, cookies) {
             };
         }
 
-        const req = (url.protocol === 'https:' ? https : http).get(options, res => {
-            res.on('data', data => {
-                resolve(data);
+        const req = (url.protocol === 'https:' ? https : http).get(options, response => {
+            response.pipe(writeStream);
+            writeStream.on('finish', async () => {
+                await writeStream.close();
+                resolve();
             })
         });
 
-        req.on('error', error => {
-            reject(error);
-        });
-    });
-}
-
-async function writeFile(content, filename) {
-    await createPath(path.dirname(filename));
-    return new Promise((resolve, reject) => {
-        fs.writeFile(filename, content, err => {
-            if (err) {
-                reject(err);
-            }
-            resolve();
-        });
+        req.on('error', reject);
     });
 }
 
