@@ -106,9 +106,11 @@ function verifyAction(action, row) {
                 'save-file <URL> as <file/path/in/zip>. The URL and file path cannot contain spaces.' +
                 ' Found ' + action.join(' '));
         }
-        if (!/^[-_.\/a-zA-Z0-9]+$/.test(action[3])) {
-            throw new Error('The file name to save as may only contains characters ' +
-                '-, _, ., /, a-z, A-Z and 0-9. Found ' + action[3]);
+        // Should be the same as Moodle's PARAM_FILE.
+        // The bit at the start is \p{Control}, but Node does not seem to support that yet.
+        // And we additionally disallow * and ? here.
+        if (/[\0-\x1F\x7F-\x9F*?&<>"`|':\\]/u.test(action[3])) {
+            throw new Error("The filename '" + action[3] + "' contains disallowed characters.");
         }
     }
 }
