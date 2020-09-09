@@ -41,13 +41,13 @@ async function readAndProcessInstructionFile(instructionFile) {
     while ((action = actions.shift())) {
         switch (action[0]) {
             case 'save-file':
-                const filename =  path.resolve(filepath, action[3]);
+                const filename = path.resolve(filepath, action[3]);
                 await saveUrlAsFile(action[1], filename, cookies);
                 console.log('Saved          %s', path.relative('', filename));
                 break;
 
             case 'save-pdf':
-                const pdfFilename =  path.resolve(filepath, action[3]);
+                const pdfFilename = path.resolve(filepath, action[3]);
                 await saveUrlAsPdf(browser, action[1], pdfFilename, cookies);
                 console.log('Saved          %s', path.relative('', pdfFilename));
                 break;
