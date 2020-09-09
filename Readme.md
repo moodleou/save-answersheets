@@ -31,6 +31,12 @@ node . instruction-file.txt
 
 to run it.
 
+To only download data for one user, you can do
+
+```
+node . --download-only X1234567 instruction-file.txt
+```
+
 ### Building an .exe
 
 We build the exe version using `nexe`, so you need to have that installed.

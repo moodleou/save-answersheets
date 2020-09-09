@@ -9,6 +9,7 @@
   "bin": "./save-answersheets.js",
   "dependencies": {
     "archiver": "^5.0.0",
+    "minimist": "^1.2.5",
     "puppeteer": "^5.2.1"
   }
 }

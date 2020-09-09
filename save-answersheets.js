@@ -9,17 +9,63 @@ const puppeteer = require('puppeteer');
 const urlUtils = require('url');
 const util = require('util');
 
-// This is the main part of the script,
-if (process.argv.length !== 3) {
-    throw new Error('Usage: ./save-answersheets <instructionfile>');
+// This is the main part of the script.
+const options = require('minimist')(process.argv.slice(2), {
+    alias: {
+        h: 'help',
+    },
+    boolean: ['help'],
+    string: ['download-only'],
+    default: {
+        'help': false,
+        'download-only': ''
+    }
+});
+
+if (options.help || options._.length !== 1) {
+    showHelpAndExit();
 }
 (async() => {
     try {
-        await readAndProcessInstructionFile(process.argv[2]);
+        await readAndProcessInstructionFile(options._[0]);
+        process.exit(0);
     } catch (error) {
-        console.error(error);
+        displayErrorAndExit(error)
     }
 })();
+
+// End of main script. Functions follow.
+
+function showHelpAndExit() {
+    console.log('Usage: ./save-answersheets [options] <instructionfile>');
+    console.log();
+    console.log('Options: -h, --help               Show this help and exit.');
+    console.log('Options: -download-only=X1234567  If specified, will only download the data for this user.');
+    console.log('                                  In this case, will always download, even if the file already exists.');
+    process.exit(0);
+}
+
+function displayErrorAndExit(error) {
+    console.error(error);
+    process.exit(1);
+}
+
+async function checkPath(basePath, relativePath) {
+    const filename = path.resolve(basePath, relativePath);
+
+    if (options['download-only'] !== '') {
+        if (!relativePath.startsWith(options['download-only'] + '/')) {
+            console.log('Skipping       %s - not the user of interest', path.relative('', filename));
+            return '';
+        }
+    } else {
+        if (await pathExists(filename)) {
+            console.log('Skipping       %s - already downloaded', path.relative('', filename));
+            return '';
+        }
+    }
+    return filename;
+}
 
 async function readAndProcessInstructionFile(instructionFile) {
     const script = await util.promisify(fs.readFile)(instructionFile);
@@ -30,7 +76,6 @@ async function readAndProcessInstructionFile(instructionFile) {
     }
 
     const filepath = path.resolve('output', actions.shift()[1]);
-    await verifyPathDoesNotExist(filepath);
     await createPath(path.resolve('output'));
     await createPath(filepath);
 
@@ -41,19 +86,23 @@ async function readAndProcessInstructionFile(instructionFile) {
     while ((action = actions.shift())) {
         switch (action[0]) {
             case 'save-file':
-                const filename = path.resolve(filepath, action[3]);
-                await saveUrlAsFile(action[1], filename, cookies);
-                console.log('Saved          %s', path.relative('', filename));
+                const filename = await checkPath(filepath, action[3]);
+                if (filename !== '') {
+                    await saveUrlAsFile(action[1], filename, cookies);
+                    console.log('Saved          %s', path.relative('', filename));
+                }
                 break;
 
             case 'save-pdf':
-                const pdfFilename = path.resolve(filepath, action[3]);
-                await saveUrlAsPdf(browser, action[1], pdfFilename, cookies);
-                console.log('Saved          %s', path.relative('', pdfFilename));
+                const pdfFilename = await checkPath(filepath, action[3]);
+                if (pdfFilename !== '') {
+                    await saveUrlAsPdf(browser, action[1], pdfFilename, cookies);
+                    console.log('Saved          %s', path.relative('', pdfFilename));
+                }
                 break;
 
             case 'cookies':
-                cookies = (new Buffer(action[1], 'base64')).toString('ascii');
+                cookies = (Buffer.from(action[1], 'base64')).toString('ascii');
                 break;
 
             default:
@@ -124,6 +173,7 @@ async function saveUrlAsPdf(browser, url, filename, cookies) {
             await page.setCookie(cookieObjects[i]);
         }
     }
+    page.setDefaultNavigationTimeout(5 * 60 * 1000); // 5 minutes
     await page.goto(url, {waitUntil: 'networkidle2'});
     await page.pdf({path: filename, format: 'A4'});
     await page.close();
@@ -171,12 +221,6 @@ async function saveUrlAsFile(urlString, filename, cookies) {
 
         req.on('error', reject);
     });
-}
-
-async function verifyPathDoesNotExist(filepath) {
-    if (await pathExists(filepath)) {
-        throw new Error('Target directory already exists. Please move or delete it and then try again.');
-    }
 }
 
 async function pathExists(filepath) {
