@@ -127,6 +127,7 @@ function parseScript(script) {
 }
 
 function verifyAction(action, row) {
+    const disallowedFilenameChars = /[\0-\x1F\x7F-\x9F*?&<>"`|':\\]/u;
     if (row === 0) {
         if (action[0] !== 'zip-name') {
             throw new Error('First link of the instructions script must give the zip-name. ' +
@@ -136,7 +137,7 @@ function verifyAction(action, row) {
             throw new Error('zip-name line should only say zip-name <filename>. ' +
                 'The filename cannot contain spaces.');
         }
-        if (!(/^[-_.a-zA-Z0-9]+$/.test(action[1]))) {
+        if (disallowedFilenameChars.test(action[1])) {
             throw new Error('The zip name may only contains characters -, _, ., a-z, A-Z and 0-9.');
         }
 
@@ -147,7 +148,7 @@ function verifyAction(action, row) {
 
     } else {
         if (action[0] !== 'save-file' && action[0] !== 'save-pdf') {
-            throw new Error('After the first line, the only recongised actions are save-file and save-pdf. ' +
+            throw new Error('After the first line, the only recognised actions are save-file and save-pdf. ' +
                 action[0] + ' found.');
         }
         if (action.length !== 4 || action[2] !== 'as') {
@@ -158,7 +159,7 @@ function verifyAction(action, row) {
         // Should be the same as Moodle's PARAM_FILE.
         // The bit at the start is \p{Control}, but Node does not seem to support that yet.
         // And we additionally disallow * and ? here.
-        if (/[\0-\x1F\x7F-\x9F*?&<>"`|':\\]/u.test(action[3])) {
+        if (disallowedFilenameChars.test(action[3])) {
             throw new Error("The filename '" + action[3] + "' contains disallowed characters.");
         }
     }
