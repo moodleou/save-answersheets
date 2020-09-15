@@ -174,8 +174,7 @@ async function saveUrlAsPdf(browser, url, filename, cookies) {
             await page.setCookie(cookieObjects[i]);
         }
     }
-    page.setDefaultNavigationTimeout(5 * 60 * 1000); // 5 minutes
-    await page.goto(url, {waitUntil: 'networkidle2'});
+    await page.goto(url, {timeout: 5 * 60 * 1000, waitUntil: 'networkidle0'});
     await page.pdf({path: filename, format: 'A4'});
     await page.close();
 }
