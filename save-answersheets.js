@@ -101,6 +101,14 @@ async function readAndProcessInstructionFile(instructionFile) {
                 }
                 break;
 
+            case 'save-text':
+                const textFilename = await checkPath(filepath, action[3]);
+                if (textFilename !== '') {
+                    await saveTextAsFile(action[1], textFilename);
+                    console.log('Saved          %s', path.relative('', textFilename));
+                }
+                break;
+
             case 'cookies':
                 cookies = (Buffer.from(action[1], 'base64')).toString('ascii');
                 break;
@@ -147,13 +155,13 @@ function verifyAction(action, row) {
         }
 
     } else {
-        if (action[0] !== 'save-file' && action[0] !== 'save-pdf') {
-            throw new Error('After the first line, the only recognised actions are save-file and save-pdf. ' +
+        if (action[0] !== 'save-file' && action[0] !== 'save-pdf' && action[0] !== 'save-text') {
+            throw new Error('After the first line, the only recognised actions are save-file, save-pdf and save-text. ' +
                 action[0] + ' found.');
         }
         if (action.length !== 4 || action[2] !== 'as') {
-            throw new Error('save-file and save-pdf actions must be of the form ' +
-                'save-file <URL> as <file/path/in/zip>. The URL and file path cannot contain spaces.' +
+            throw new Error('save-file, save-pdf and save-text actions must be of the form ' +
+                'save-file <URL/content> as <file/path/in/zip>. The URL/content and file path cannot contain spaces.' +
                 ' Found ' + action.join(' '));
         }
         // Should be the same as Moodle's PARAM_FILE.
@@ -221,6 +229,11 @@ async function saveUrlAsFile(urlString, filename, cookies) {
 
         req.on('error', reject);
     });
+}
+
+async function saveTextAsFile(rawContent, filename) {
+    await createPath(path.dirname(filename));
+    return util.promisify(fs.writeFile)(filename, rawContent.replace(/_/g, ' '));
 }
 
 async function pathExists(filepath) {

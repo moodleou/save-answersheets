@@ -39,7 +39,8 @@ node . --download-only X1234567 instruction-file.txt
 
 ### Building an .exe
 
-We build the exe version using `nexe`, so you need to have that installed.
+We build the exe version using `nexe`, so you need to have that installed. Finding a version that works
+can be tricky, but node 12.9.1 currently does.
 
 ```
 npm install -g nexe
