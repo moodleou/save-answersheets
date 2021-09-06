@@ -15,13 +15,14 @@ const options = require('minimist')(process.argv.slice(2), {
         h: 'help',
         v: 'version'
     },
-    boolean: ['help', 'version'],
-    string: ['download-only', 'redownload-if-than'],
+    boolean: ['help', 'version', 'skip-pdfs'],
+    string: ['download-only', 'redownload-if-smaller'],
     default: {
         'help': false,
         'version': false,
         'download-only': '',
-        'redownload-if-smaller': ''
+        'redownload-if-smaller': '',
+        'skip-pdfs': false
     }
 });
 
@@ -31,6 +32,7 @@ if (options.version) {
 if (options.help || options._.length !== 1) {
     showHelpAndExit();
 }
+
 (async() => {
     try {
         if (options['redownload-if-smaller'] !== '') {
@@ -54,11 +56,12 @@ function showHelpAndExit() {
     console.log('                                     In this case, will always download, even if the file already exists.');
     console.log('Options: --redownload-if-smaller=5KB If the responses.pdf file is less than this size,');
     console.log('                                     re-download the whole attempt. Size can be in B, KB, MB or GB');
+    console.log('Options: --skip-pdfs                 Down download responses.pdf files, just do the attachments');
     process.exit(0);
 }
 
 function showVersionAndExit() {
-    console.log('This is save-answersheets version 2021-06-12.');
+    console.log('This is save-answersheets version 2021-09-06.');
     process.exit(0);
 }
 
@@ -109,6 +112,9 @@ async function readAndProcessInstructionFile(instructionFile) {
 
     const browser = await puppeteer.launch();
 
+    const startTime = new Date();
+    console.log('Run started at %s', startTime.toLocaleString());
+
     let action;
     let cookies = '';
     while ((action = actions.shift())) {
@@ -125,9 +131,12 @@ async function readAndProcessInstructionFile(instructionFile) {
             case 'save-pdf':
                 const pdfFilename = await checkPath(filepath, action[3]);
                 if (pdfFilename !== '') {
-                    await saveUrlAsPdf(browser, action[1], pdfFilename, cookies);
-                    console.log('Saved          %s [%s]', path.relative('', pdfFilename),
-                        formatBytes(getFileSize(pdfFilename)));
+                    await createPath(path.dirname(pdfFilename));
+                    if (!options['skip-pdfs']) {
+                        await saveUrlAsPdf(browser, action[1], pdfFilename, cookies);
+                        console.log('Saved          %s [%s]', path.relative('', pdfFilename),
+                            formatBytes(getFileSize(pdfFilename)));
+                    }
                 }
                 break;
 
@@ -152,7 +161,10 @@ async function readAndProcessInstructionFile(instructionFile) {
     await zipDirectory(filepath, filepath + '.zip');
     console.log('');
     console.log('Created %s', path.relative('', filepath + '.zip'));
-    console.log('The end.');
+
+    const endTime = new Date();
+    console.log('Run completed at %s. Time taken %f seconds.', endTime.toLocaleString(),
+            (endTime.getTime() - startTime.getTime()) / 1000);
 }
 
 function parseScript(script) {
@@ -204,7 +216,6 @@ function verifyAction(action, row) {
 }
 
 async function saveUrlAsPdf(browser, url, filename, cookies) {
-    await createPath(path.dirname(filename));
     const page = await browser.newPage();
     if (cookies) {
         const cookieObjects = parseCookies(cookies, url);
