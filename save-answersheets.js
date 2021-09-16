@@ -52,16 +52,19 @@ function showHelpAndExit() {
     console.log();
     console.log('Options: -h, --help                  Show this help and exit.');
     console.log('Options: -v, --version               Print version information and exit.');
-    console.log('Options: --download-only=X1234567    If specified, will only download the data for this user.');
-    console.log('                                     In this case, will always download, even if the file already exists.');
-    console.log('Options: --redownload-if-smaller=5KB If the responses.pdf file is less than this size,');
-    console.log('                                     re-download the whole attempt. Size can be in B, KB, MB or GB');
-    console.log('Options: --skip-pdfs                 Down download responses.pdf files, just do the attachments');
+    console.log('Options: --download-only=X1234567    If specified, will only download the data');
+    console.log('                                     for this user. In this case, will always');
+    console.log('                                     download, even if the file already exists.');
+    console.log('Options: --redownload-if-smaller=5KB If the responses.pdf file is less than');
+    console.log('                                     this size, re-download the whole attempt.');
+    console.log('                                     The size can be in B, KB, MB or GB.');
+    console.log('Options: --skip-pdfs                 Don\'t download responses.pdf files,');
+    console.log('                                     just do the attachments.');
     process.exit(0);
 }
 
 function showVersionAndExit() {
-    console.log('This is save-answersheets version 2021-09-06.');
+    console.log('This is save-answersheets version 2021-09-16.');
     process.exit(0);
 }
 
@@ -136,6 +139,8 @@ async function readAndProcessInstructionFile(instructionFile) {
                         await saveUrlAsPdf(browser, action[1], pdfFilename, cookies);
                         console.log('Saved          %s [%s]', path.relative('', pdfFilename),
                             formatBytes(getFileSize(pdfFilename)));
+                    } else {
+                        console.log('Skipping       %s - due to skip-pdfs option', path.relative('', pdfFilename));
                     }
                 }
                 break;
