@@ -63,7 +63,7 @@ function showHelpAndExit() {
 }
 
 function showVersionAndExit() {
-    console.log('This is save-answersheets version 2021-09-16.');
+    console.log('This is save-answersheets version 2021-11-25.');
     process.exit(0);
 }
 
