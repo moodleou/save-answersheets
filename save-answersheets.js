@@ -2,8 +2,7 @@
 
 const archiver = require('archiver');
 const fs = require('fs');
-const http = require('http');
-const https = require('https');
+const { http, https } = require('follow-redirects');
 const path = require('path');
 const puppeteer = require('puppeteer');
 const urlUtils = require('url');
