@@ -250,7 +250,6 @@ function parseCookies(cookiesHeader, urlString) {
 
 async function saveUrlAsFile(urlString, filename, cookies) {
     await createPath(path.dirname(filename));
-    const writeStream = fs.createWriteStream(filename);
 
     return new Promise((resolve, reject) => {
         const url = urlUtils.parse(urlString);
@@ -265,11 +264,17 @@ async function saveUrlAsFile(urlString, filename, cookies) {
         }
 
         const req = (url.protocol === 'https:' ? https : http).get(options, response => {
-            response.pipe(writeStream);
-            writeStream.on('finish', async () => {
-                await writeStream.close();
-                resolve();
-            })
+            if (response.statusCode !== 200) {
+                reject("Failed to save '" + filename + "'. " + response.statusCode + " " + response.statusMessage);
+
+            } else {
+                const writeStream = fs.createWriteStream(filename);
+                response.pipe(writeStream);
+                writeStream.on('finish', async () => {
+                    await writeStream.close();
+                    resolve();
+                });
+            }
         });
 
         req.on('error', reject);
