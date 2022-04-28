@@ -10,7 +10,7 @@
   "dependencies": {
     "archiver": "^5.0.0",
     "follow-redirects": "^1.14.8",
-    "minimist": "^1.2.5",
+    "minimist": "^1.2.6",
     "puppeteer": "^5.2.1"
   }
 }
