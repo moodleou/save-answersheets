@@ -76,7 +76,8 @@ async function checkPath(basePath, relativePath) {
     const filename = path.resolve(basePath, relativePath);
 
     if (options['download-only'] !== '') {
-        if (!relativePath.startsWith(options['download-only'] + '/responses.pdf')) {
+        // The - case in the if below, to handle the multiple attempts by one user case.
+        if (!(relativePath.startsWith(options['download-only'] + '/') || relativePath.startsWith(options['download-only'] + '-'))) {
             console.log('Skipping       %s - not the user of interest', path.relative('', filename));
             return '';
         }
